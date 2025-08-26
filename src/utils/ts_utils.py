@@ -251,7 +251,62 @@ def mae(actuals, predictions):
     return np.nanmean(np.abs(actuals-predictions))
 
 def mse(actuals, predictions):
+  """
+  Calculates the Mean Squared Error (MSE).
+
+  Args:
+    actuals: A numpy array of true values.
+    predictions: A numpy array of predicted values.
+
+  Returns:
+    The MSE value.
+  """    
     return np.nanmean(np.power(actuals-predictions, 2))
+
+def mape(actuals, predictions):
+  """
+  Calculates the Mean Absolute Percentage Error (MAPE).
+
+  Args:
+    actuals: A numpy array of true values.
+    predictions: A numpy array of predicted values.
+
+  Returns:
+    The MAPE value as a percentage.
+  """
+  # Ensure inputs are numpy arrays to leverage broadcasting
+  actuals, predictions = np.array(actuals), np.array(predictions)
+  
+  # Calculate the absolute percentage error, handling potential division by zero
+  # We filter out cases where the actual value is 0 to avoid infinity.
+  non_zero_actuals = actuals != 0
+  
+  if not np.any(non_zero_actuals):
+      return 0 # Or np.nan, depending on how you want to handle all-zero actuals
+
+  return np.mean(np.abs((actuals[non_zero_actuals] - predictions[non_zero_actuals]) / actuals[non_zero_actuals])) * 100
+
+def msle(actuals, predictions):
+  """
+  Calculates the Mean Squared Logarithmic Error (MSLE).
+
+  Args:
+    actuals: A numpy array of true values.
+    predictions: A numpy array of predicted values.
+
+  Returns:
+    The MSLE value.
+  """
+  # Ensure inputs are numpy arrays
+  actuals, predictions = np.array(actuals), np.array(predictions)
+  
+  # Calculate the log of 1 + value for both actuals and predictions
+  # np.log1p is used for better precision with small values
+  log_actuals = np.log1p(actuals)
+  log_predictions = np.log1p(predictions)
+  
+  # Calculate the squared difference and then the mean
+  return np.mean(np.power(log_actuals - log_predictions, 2))
 
 def mase(actuals, predictions, insample):
     """
