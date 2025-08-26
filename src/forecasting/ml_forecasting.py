@@ -10,7 +10,7 @@ from sklearn.base import BaseEstimator, clone
 from sklearn.preprocessing import StandardScaler
 
 from src.utils.general import difference_list, intersect_list
-from src.utils.ts_utils import forecast_bias, mae, mse, mase, metrics_adapter
+from src.utils.ts_utils import forecast_bias, mae, mse, mase, metrics_adapter, mape, msle
 
 # from category_encoders import OneHotEncoder
 
