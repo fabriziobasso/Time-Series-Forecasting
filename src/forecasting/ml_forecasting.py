@@ -422,6 +422,12 @@ def calculate_metrics(
         "MASE": metrics_adapter(
             mase, actual_series=y, pred_series=y_pred, insample=y_train
         )
+        "MAPE": metrics_adapter(
+            mape, actual_series=y, pred_series=y_pred, insample=y_train
+        )
+        "MSLE": metrics_adapter(
+            msle, actual_series=y, pred_series=y_pred, insample=y_train
+        )
         if y_train is not None
         else None,
         "Forecast Bias": metrics_adapter(
