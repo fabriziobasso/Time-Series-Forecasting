@@ -427,10 +427,10 @@ def calculate_metrics(
         "MSE": metrics_adapter(mse, actual_series=y, pred_series=y_pred),
         "MASE": metrics_adapter(
             mase, actual_series=y, pred_series=y_pred, insample=y_train
-        )
+        ),
         "MAPE": metrics_adapter(
             mape, actual_series=y, pred_series=y_pred, insample=y_train
-        )
+        ),
         "MSLE": metrics_adapter(
             msle, actual_series=y, pred_series=y_pred, insample=y_train
         )
