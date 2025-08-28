@@ -248,7 +248,7 @@ def metrics_adapter(metric_func, actual_series,
         return metric_func(actual_series, pred_series)
 
 def mae(actuals, predictions):
-    return np.nanmean(np.abs(actuals-predictions))
+  return np.nanmean(np.abs(actuals-predictions))
 
 def mse(actuals, predictions):
   """
@@ -261,7 +261,7 @@ def mse(actuals, predictions):
   Returns:
     The MSE value.
   """    
-    return np.nanmean(np.power(actuals-predictions, 2))
+  return np.nanmean(np.power(actuals-predictions, 2))
 
 def mape(actuals, predictions):
   """
