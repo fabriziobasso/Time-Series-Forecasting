@@ -199,6 +199,12 @@ class ModelConfig:
         metadata={"help": "Categorical Encoder to be used"},
     )
 
+    normalization_strategy: BaseEstimator = field(
+        default = StandardScaler(),
+        metadata={"help": "Scaling Strategy"},
+    )
+    
+
     def __post_init__(self):
         assert not (
             self.encode_categorical and self.categorical_encoder is None
@@ -234,7 +240,7 @@ class MLForecast:
         self.target_transformer = target_transformer
         self._model = clone(model_config.model)
         if self.model_config.normalize:
-            self._scaler = StandardScaler()
+            self._scaler = self.model_config.normalization_strategy
         if self.model_config.encode_categorical:
             self._cat_encoder = self.model_config.categorical_encoder
             self._encoded_categorical_features = copy.deepcopy(
