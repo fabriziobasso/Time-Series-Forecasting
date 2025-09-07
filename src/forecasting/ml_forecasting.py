@@ -635,18 +635,29 @@ class MissingValueConfig_Tab:
             df[median_fill_cols] = df[median_fill_cols].fillna(median_values)
 
         
+        # --- Step 3: Apply default imputation for any remaining missing values ---
+        print("Applying default imputation for remaining missing values...")
         check = df.isnull().any()
         missing_cols = check[check].index.tolist()
+
+        if not missing_cols:
+            print("No missing values remaining.")
+            return df
+        
+        # Default for numeric: mean
         missing_numeric_cols = intersect_list(
-            missing_cols, df.select_dtypes([np.number]).columns.tolist()
+            missing_cols, df.select_dtypes(include=np.number).columns.tolist()
         )
+        if missing_numeric_cols:
+            mean_values = df[missing_numeric_cols].mean()
+            df[missing_numeric_cols] = df[missing_numeric_cols].fillna(mean_values)
+
+        # Default for object/categorical: "NA" string
         missing_object_cols = intersect_list(
-            missing_cols, df.select_dtypes(["object"]).columns.tolist()
-        )
-        # Filling with mean and NA as default fillna strategy
-        df[missing_numeric_cols] = df[missing_numeric_cols].fillna(
-            df[missing_numeric_cols].mean()
+            missing_cols, df.select_dtypes(include=["object", "category"]).columns.tolist()
         )
         df[missing_object_cols] = df[missing_object_cols].fillna("NA")
+
+        print("Imputation complete!")
         return df
 
