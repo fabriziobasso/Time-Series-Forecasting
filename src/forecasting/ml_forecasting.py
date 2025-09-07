@@ -555,5 +555,98 @@ class FeatureConfig_Tab:
         )
         return X, y, y_orig
 
+@dataclass
+class MissingValueConfig_Tab:
 
+    bfill_columns: List = field(
+        default_factory=list,
+        metadata={"help": "Column names which should be filled using strategy=`bfill`"},
+    )
+
+    ffill_columns: List = field(
+        default_factory=list,
+        metadata={"help": "Column names which should be filled using strategy=`ffill`"},
+    )
+    zero_fill_columns: List = field(
+        default_factory=list,
+        metadata={"help": "Column names which should be filled using 0"},
+    )
+    median_fill_columns: List = field(
+        default_factory=list,
+        metadata={"help": "Column names to be filled with the column's median"},
+    )
+    # Option to add indicator columns for missingness
+    add_indicator_columns: bool = field(
+        default=False,
+        metadata={"help": "If True, adds a new column for each imputed feature, marking where values were originally missing."}
+    )
+
+    
+    def impute_missing_values(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Imputes missing values in the DataFrame based on the configuration.
+
+        Args:
+            df (pd.DataFrame): The input DataFrame with missing values.
+
+        Returns:
+            pd.DataFrame: The DataFrame with missing values imputed.
+        """
+        df = df.copy()
+
+        # --- Step 1 (Optional): Add indicator columns ---
+        # Get a set of all columns that will be imputed by a specific strategy
+        imputed_cols: Set[str] = set(
+            self.bfill_columns + 
+            self.ffill_columns + 
+            self.zero_fill_columns + 
+            self.median_fill_columns
+        )
+        
+        # Create indicator columns if the option is enabled
+        if self.add_indicator_columns:
+            print("Adding indicator columns...")
+            # Find the actual columns present in the DataFrame that will be imputed
+            valid_imputed_cols = intersect_list(list(df.columns), list(imputed_cols))
+            
+            for col in valid_imputed_cols:
+                if df[col].isnull().any():
+                    indicator_col_name = f"{col}_was_missing"
+                    df[indicator_col_name] = df[col].isnull().astype(int)
+
+        # --- Step 2: Apply specified imputation strategies ---
+        print("Applying specified imputation strategies...")
+        # Strategy: bfill
+        bfill_cols = intersect_list(df.columns, self.bfill_columns)
+        df[bfill_cols] = df[bfill_cols].fillna(method="bfill")
+
+        # Strategy: ffill
+        ffill_cols = intersect_list(df.columns, self.ffill_columns)
+        df[ffill_cols] = df[ffill_cols].fillna(method="ffill")
+
+        # Strategy: Zero fill
+        zero_fill_cols = intersect_list(df.columns, self.zero_fill_columns)
+        df[zero_fill_cols] = df[zero_fill_cols].fillna(0)
+
+        # Strategy: Median fill
+        median_fill_cols = intersect_list(df.columns, self.median_fill_columns)
+        if median_fill_cols:
+            median_values = df[median_fill_cols].median()
+            df[median_fill_cols] = df[median_fill_cols].fillna(median_values)
+
+        
+        check = df.isnull().any()
+        missing_cols = check[check].index.tolist()
+        missing_numeric_cols = intersect_list(
+            missing_cols, df.select_dtypes([np.number]).columns.tolist()
+        )
+        missing_object_cols = intersect_list(
+            missing_cols, df.select_dtypes(["object"]).columns.tolist()
+        )
+        # Filling with mean and NA as default fillna strategy
+        df[missing_numeric_cols] = df[missing_numeric_cols].fillna(
+            df[missing_numeric_cols].mean()
+        )
+        df[missing_object_cols] = df[missing_object_cols].fillna("NA")
+        return df
 
