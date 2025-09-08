@@ -557,56 +557,58 @@ class FeatureConfig_Tab:
 
 @dataclass
 class MissingValueConfig_Tab:
+    """
+    Configuration class for handling missing value imputation in a pandas DataFrame.
+    """
 
-    bfill_columns: List = field(
+    # --- Configuration for imputation strategies ---
+    bfill_columns: List[str] = field(
         default_factory=list,
-        metadata={"help": "Column names which should be filled using strategy=`bfill`"},
+        metadata={"help": "Column names to be filled using strategy=`bfill`"},
     )
 
-    ffill_columns: List = field(
+    ffill_columns: List[str] = field(
         default_factory=list,
-        metadata={"help": "Column names which should be filled using strategy=`ffill`"},
+        metadata={"help": "Column names to be filled using strategy=`ffill`"},
     )
-    zero_fill_columns: List = field(
+    
+    zero_fill_columns: List[str] = field(
         default_factory=list,
-        metadata={"help": "Column names which should be filled using 0"},
+        metadata={"help": "Column names to be filled with 0"},
     )
-    median_fill_columns: List = field(
+    
+    median_fill_columns: List[str] = field(
         default_factory=list,
         metadata={"help": "Column names to be filled with the column's median"},
     )
-    # Option to add indicator columns for missingness
+    
+    # NEW: Added mode fill columns
+    mode_fill_columns: List[str] = field(
+        default_factory=list,
+        metadata={"help": "Column names to be filled with the column's mode"},
+    )
+    
     add_indicator_columns: bool = field(
         default=False,
         metadata={"help": "If True, adds a new column for each imputed feature, marking where values were originally missing."}
     )
 
-    
     def impute_missing_values(self, df: pd.DataFrame) -> pd.DataFrame:
         """
         Imputes missing values in the DataFrame based on the configuration.
-
-        Args:
-            df (pd.DataFrame): The input DataFrame with missing values.
-
-        Returns:
-            pd.DataFrame: The DataFrame with missing values imputed.
         """
         df = df.copy()
 
         # --- Step 1 (Optional): Add indicator columns ---
-        # Get a set of all columns that will be imputed by a specific strategy
         imputed_cols: Set[str] = set(
             self.bfill_columns + 
             self.ffill_columns + 
             self.zero_fill_columns + 
-            self.median_fill_columns
+            self.median_fill_columns +
+            self.mode_fill_columns  # Added mode columns here
         )
         
-        # Create indicator columns if the option is enabled
         if self.add_indicator_columns:
-            print("Adding indicator columns...")
-            # Find the actual columns present in the DataFrame that will be imputed
             valid_imputed_cols = intersect_list(list(df.columns), list(imputed_cols))
             
             for col in valid_imputed_cols:
@@ -615,7 +617,6 @@ class MissingValueConfig_Tab:
                     df[indicator_col_name] = df[col].isnull().astype(int)
 
         # --- Step 2: Apply specified imputation strategies ---
-        print("Applying specified imputation strategies...")
         # Strategy: bfill
         bfill_cols = intersect_list(df.columns, self.bfill_columns)
         df[bfill_cols] = df[bfill_cols].fillna(method="bfill")
@@ -627,21 +628,25 @@ class MissingValueConfig_Tab:
         # Strategy: Zero fill
         zero_fill_cols = intersect_list(df.columns, self.zero_fill_columns)
         df[zero_fill_cols] = df[zero_fill_cols].fillna(0)
-
+        
         # Strategy: Median fill
         median_fill_cols = intersect_list(df.columns, self.median_fill_columns)
         if median_fill_cols:
             median_values = df[median_fill_cols].median()
             df[median_fill_cols] = df[median_fill_cols].fillna(median_values)
 
-        
+        # NEW Strategy: Mode fill
+        mode_fill_cols = intersect_list(df.columns, self.mode_fill_columns)
+        if mode_fill_cols:
+            # .mode() can return multiple values if there's a tie, so we take the first one.
+            mode_values = df[mode_fill_cols].mode().iloc[0]
+            df[mode_fill_cols] = df[mode_fill_cols].fillna(mode_values)
+
         # --- Step 3: Apply default imputation for any remaining missing values ---
-        print("Applying default imputation for remaining missing values...")
         check = df.isnull().any()
         missing_cols = check[check].index.tolist()
 
         if not missing_cols:
-            print("No missing values remaining.")
             return df
         
         # Default for numeric: mean
@@ -658,6 +663,4 @@ class MissingValueConfig_Tab:
         )
         df[missing_object_cols] = df[missing_object_cols].fillna("NA")
 
-        print("Imputation complete!")
         return df
-
