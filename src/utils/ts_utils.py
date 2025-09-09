@@ -263,6 +263,19 @@ def mse(actuals, predictions):
   """    
   return np.nanmean(np.power(actuals-predictions, 2))
 
+def rmse(actuals, predictions):
+  """
+  Calculates the Mean Squared Error (MSE).
+
+  Args:
+    actuals: A numpy array of true values.
+    predictions: A numpy array of predicted values.
+
+  Returns:
+    The MSE value.
+  """    
+  return np.sqrt(np.nanmean(np.power(actuals-predictions, 2)))
+
 def mape(actuals, predictions):
   """
   Calculates the Mean Absolute Percentage Error (MAPE).
