@@ -257,10 +257,10 @@ class MLForecast:
         if self.load_models:
             folder = Path(self.link+"/output")
             self._scaler = joblib.load(folder+'{self.scaler_name}.save') 
-            self._model = sio.get_untrusted_types(file="filename.skops")
-# investigate the contents of unknown_types, and only load if you trust
-# everything you see.
-clf = sio.load("filename.skops", trusted=unknown_types)
+            self._model = sio.get_untrusted_types(file=folder+"filename.skops")
+            # investigate the contents of unknown_types, and only load if you trust
+            # everything you see.
+            clf = sio.load("filename.skops", trusted=unknown_types)
 
 
     def fit(
