@@ -5,6 +5,8 @@ from typing import Dict, List, Union
 
 import numpy as np
 import pandas as pd
+import os
+from pathlib import Path
 
 from sklearn.base import BaseEstimator, clone
 from sklearn.preprocessing import StandardScaler
@@ -222,7 +224,9 @@ class MLForecast:
         feature_config: FeatureConfig,
         missing_config: MissingValueConfig = None,
         target_transformer: object = None,
-    ) -> None:
+        load_models= False,
+        link = None,
+        scaler_name = None) -> None:
         """Convenient wrapper around scikit-learn style estimators
 
         Args:
@@ -239,6 +243,9 @@ class MLForecast:
         self.missing_config = missing_config
         self.target_transformer = target_transformer
         self._model = clone(model_config.model)
+        self.load_model = load_model
+        self.link = link
+        self.scaler_name = scaler_name
         if self.model_config.normalize:
             self._scaler = self.model_config.normalization_strategy
         if self.model_config.encode_categorical:
@@ -246,6 +253,15 @@ class MLForecast:
             self._encoded_categorical_features = copy.deepcopy(
                 self.feature_config.categorical_features
             )
+
+        if self.load_models:
+            folder = Path(self.link+"/output")
+            self._scaler = joblib.load(folder+'{self.scaler_name}.save') 
+            self._model = sio.get_untrusted_types(file="filename.skops")
+# investigate the contents of unknown_types, and only load if you trust
+# everything you see.
+clf = sio.load("filename.skops", trusted=unknown_types)
+
 
     def fit(
         self,
