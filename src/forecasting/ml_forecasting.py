@@ -245,7 +245,7 @@ class MLForecast:
         self.missing_config = missing_config
         self.target_transformer = target_transformer
         self._model = clone(model_config.model)
-        self.load_model = load_model
+        self.load_model = load_models
         self.link = link
         self.model_name = model_name
         self.scaler_name = scaler_name
