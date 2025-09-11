@@ -257,7 +257,7 @@ class MLForecast:
                 self.feature_config.categorical_features
             )
 
-        if self.load_models:
+        if self.load_model:
             self.folder = Path(self.link+"/output")
             self._scaler = joblib.load(folder+f'{self.scaler_name}.save') 
             unknown_types = sio.get_untrusted_types(file="filename.skops")
