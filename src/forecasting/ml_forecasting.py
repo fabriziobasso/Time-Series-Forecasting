@@ -8,6 +8,7 @@ import pandas as pd
 import os
 from pathlib import Path
 import skops.io as sio
+import joblib
 
 from sklearn.base import BaseEstimator, clone
 from sklearn.preprocessing import StandardScaler
