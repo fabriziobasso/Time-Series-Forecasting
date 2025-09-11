@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 import os
 from pathlib import Path
+import skops.io as sio
 
 from sklearn.base import BaseEstimator, clone
 from sklearn.preprocessing import StandardScaler
@@ -226,7 +227,8 @@ class MLForecast:
         target_transformer: object = None,
         load_models= False,
         link = None,
-        scaler_name = None) -> None:
+        scaler_name = None,
+        model_name = None) -> None:
         """Convenient wrapper around scikit-learn style estimators
 
         Args:
@@ -245,6 +247,7 @@ class MLForecast:
         self._model = clone(model_config.model)
         self.load_model = load_model
         self.link = link
+        self.model_name = model_name
         self.scaler_name = scaler_name
         if self.model_config.normalize:
             self._scaler = self.model_config.normalization_strategy
@@ -255,13 +258,18 @@ class MLForecast:
             )
 
         if self.load_models:
-            folder = Path(self.link+"/output")
-            self._scaler = joblib.load(folder+'{self.scaler_name}.save') 
-            self._model = sio.get_untrusted_types(file=folder+"filename.skops")
+            self.folder = Path(self.link+"/output")
+            self._scaler = joblib.load(folder+f'{self.scaler_name}.save') 
+            unknown_types = sio.get_untrusted_types(file="filename.skops")
             # investigate the contents of unknown_types, and only load if you trust
             # everything you see.
-            clf = sio.load("filename.skops", trusted=unknown_types)
+            self._model = sio.load(folder+f"{self.model_name}.skops", trusted=unknown_types)
 
+
+    def save_models(self, save_link=None, model_name=None, scaler_name=None):
+        joblib.dump(self._scaler, save_link+f'{scaler_name}.save') 
+        obj = sio.dump(self._model, save_link+f"{model_name}.skops")
+        print(f"Model saved in {save_link} with name {model_name}")
 
     def fit(
         self,
@@ -394,6 +402,7 @@ class MLForecast:
             y_pred = self.target_transformer.inverse_transform(y_pred)
             y_pred.name = f"{self.model_config.name}"
         return y_pred
+
 
     def feature_importance(self) -> pd.DataFrame:
         """Generates the feature importance dataframe, if available. For linear
