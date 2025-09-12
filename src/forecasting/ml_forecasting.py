@@ -259,12 +259,12 @@ class MLForecast:
             )
 
         if self.load_model:
-            self.folder = Path(self.link+"/output")
-            self._scaler = joblib.load(folder+f'{self.scaler_name}.save') 
+            #self.folder = Path(self.link+"/output")
+            self._scaler = joblib.load(self.link+f'{self.scaler_name}.save') 
             unknown_types = sio.get_untrusted_types(file="filename.skops")
             # investigate the contents of unknown_types, and only load if you trust
             # everything you see.
-            self._model = sio.load(folder+f"{self.model_name}.skops", trusted=unknown_types)
+            self._model = sio.load(self.link+f"{self.model_name}.skops", trusted=unknown_types)
 
 
     def save_models(self, save_link=None, model_name=None, scaler_name=None):
