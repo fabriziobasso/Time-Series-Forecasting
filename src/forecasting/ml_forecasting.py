@@ -229,7 +229,7 @@ class MLForecast:
         load_models= False,
         link = None,
         scaler_name = None,
-        model_name = None
+        model_name = None,
         encoder_name=None) -> None:
         """Convenient wrapper around scikit-learn style estimators
 
