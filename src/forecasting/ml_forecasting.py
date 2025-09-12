@@ -383,7 +383,7 @@ class MLForecast:
         """
 #        assert len(intersect_list(self._train_features, X.columns)) == len(self._train_features),
 #                   f"All the features during training is not available while predicting: {difference_list(self._train_features, X.columns)}"
-
+#         Recreate a number of features necessary for run predice:
         self._continuous_feats = intersect_list(
             self.feature_config.continuous_features, X.columns
         )
@@ -393,7 +393,16 @@ class MLForecast:
         self._boolean_feats = intersect_list(
             self.feature_config.boolean_features, X.columns
         )
-        
+
+        if self.model_config.normalize:
+            self._scaler = self.model_config.normalization_strategy
+        if self.model_config.encode_categorical:
+            self._cat_encoder = self.model_config.categorical_encoder
+            self._encoded_categorical_features = copy.deepcopy(
+                self.feature_config.categorical_features
+            )
+
+#       Old Code:        
         if self.model_config.fill_missing:
             X = self.missing_config.impute_missing_values(X)
         if self.model_config.encode_categorical:
