@@ -226,11 +226,7 @@ class MLForecast:
         feature_config: FeatureConfig,
         missing_config: MissingValueConfig = None,
         target_transformer: object = None,
-        load_models= False,
-        link = None,
-        scaler_name = None,
-        model_name = None,
-        encoder_name=None) -> None:
+    ) -> None:
         """Convenient wrapper around scikit-learn style estimators
 
         Args:
@@ -247,39 +243,13 @@ class MLForecast:
         self.missing_config = missing_config
         self.target_transformer = target_transformer
         self._model = clone(model_config.model)
-        self.load_model = load_models
-        self.link = link
-        self._model_name = model_name
-        self._scaler_name = scaler_name
-        self._encoder_name = encoder_name
         if self.model_config.normalize:
-            self._scaler = self.model_config.normalization_strategy
+            self._scaler = StandardScaler()
         if self.model_config.encode_categorical:
             self._cat_encoder = self.model_config.categorical_encoder
             self._encoded_categorical_features = copy.deepcopy(
                 self.feature_config.categorical_features
             )
-
-        if self.load_model:
-            #self.folder = Path(self.link+"/output")
-            self._scaler = joblib.load(self.link+f'{self._scaler_name}.save') 
-            unknown_types = sio.get_untrusted_types(file=self.link+f"{self._model_name}.skops")
-            # investigate the contents of unknown_types, and only load if you trust
-            # everything you see.
-            self._model = sio.load(self.link+f"{self._model_name}.skops", trusted=unknown_types)
-
-            if self.model_config.encode_categorical:
-                self._cat_encoder = joblib.load(self.link+f'{self._encoder_name}.save') 
-
-
-    def save_models(self, save_link=None, model_name=None, scaler_name=None, encoder_name=None):
-        joblib.dump(self._scaler, save_link+f'{scaler_name}.save') 
-        obj = sio.dump(self._model, save_link+f"{model_name}.skops")
-
-        if self.model_config.encode_categorical:
-            joblib.dump(self._cat_encoder, save_link+f'{encoder_name}.save')
-        
-        print(f"Model saved in {save_link} with name {model_name} as well as the encoder")
 
     def fit(
         self,
@@ -390,43 +360,9 @@ class MLForecast:
         Returns:
             pd.Series: predictions using the model as a pandas Series with datetime index
         """
-#        assert len(intersect_list(self._train_features, X.columns)) == len(self._train_features),
-#                   f"All the features during training is not available while predicting: {difference_list(self._train_features, X.columns)}"
-#         Recreate a number of features necessary for run predice:
-        self._continuous_feats = intersect_list(
-            self.feature_config.continuous_features, X.columns
-        )
-        self._categorical_feats = intersect_list(
-            self.feature_config.categorical_features, X.columns
-        )
-        self._boolean_feats = intersect_list(
-            self.feature_config.boolean_features, X.columns
-        )
-
-        if self.model_config.encode_categorical:
-            missing_cat_cols = difference_list(
-                self._categorical_feats,
-                self._cat_encoder.cols,
-            )
-            assert (
-                len(missing_cat_cols) == 0
-            ), f"These categorical features are not handled by the categorical_encoder: {missing_cat_cols}"
-            
-            # Now get the feature names from the fitted encoder
-            try:
-                feature_names = self._cat_encoder.get_feature_names()
-            except AttributeError:
-                # For newer versions of sklearn
-                feature_names = self._cat_encoder.get_feature_names_out()
-            
-            self._encoded_categorical_features = difference_list(
-                feature_names,
-                self.feature_config.continuous_features + self.feature_config.boolean_features,
-            )
-        else:
-            self._encoded_categorical_features = []
-
-#       Old Code:        
+        assert len(intersect_list(self._train_features, X.columns)) == len(
+            self._train_features
+        ), f"All the features during training is not available while predicting: {difference_list(self._train_features, X.columns)}"
         if self.model_config.fill_missing:
             X = self.missing_config.impute_missing_values(X)
         if self.model_config.encode_categorical:
@@ -447,33 +383,44 @@ class MLForecast:
             y_pred.name = f"{self.model_config.name}"
         return y_pred
 
+ # --- NEW METHODS FOR SAVING AND LOADING ---
+    
+    def save(self, filepath: str) -> None:
+        """Saves the entire MLForecast object to a file using joblib.
 
-    def feature_importance(self) -> pd.DataFrame:
-        """Generates the feature importance dataframe, if available. For linear
-            models the coefficients are used and tree based models use the inbuilt
-            feature importance. For the rest of the models, it returns an empty dataframe.
+        This method serializes the model, transformers (scaler, encoder),
+        and all configuration and internal state needed for prediction.
+
+        Args:
+            filepath (str): The path to the file where the object will be saved. 
+                            Example: 'my_model.joblib'
+        """
+        if not self._is_fitted:
+            raise RuntimeError(
+                "Cannot save an unfitted model. Please call the 'fit' method first."
+            )
+        
+        print(f"Saving MLForecast object to {filepath}...")
+        joblib.dump(self, filepath)
+        print("Save complete.")
+
+    @classmethod
+    def load(cls, filepath: str) -> "MLForecast":
+        """Loads an MLForecast object from a file using joblib.
+
+        This class method deserializes a previously saved MLForecast object,
+        restoring its model, transformers, and state.
+
+        Args:
+            filepath (str): The path to the file from which to load the object.
 
         Returns:
-            pd.DataFrame: Feature Importance dataframe, sorted in descending order of its importances.
+            MLForecast: The loaded MLForecast instance, ready for prediction.
         """
-        if hasattr(self._model, "coef_") or hasattr(
-            self._model, "feature_importances_"
-        ):
-            feat_df = pd.DataFrame(
-                {
-                    "feature": self._train_features,
-                    "importance": self._model.coef_.ravel()
-                    if hasattr(self._model, "coef_")
-                    else self._model.feature_importances_.ravel(),
-                }
-            )
-            feat_df["_abs_imp"] = np.abs(feat_df.importance)
-            feat_df = feat_df.sort_values("_abs_imp", ascending=False).drop(
-                columns="_abs_imp"
-            )
-        else:
-            feat_df = pd.DataFrame()
-        return feat_df
+        print(f"Loading MLForecast object from {filepath}...")
+        model_instance = joblib.load(filepath)
+        print("Load complete.")
+        return model_instance
 
 
 def calculate_metrics(
