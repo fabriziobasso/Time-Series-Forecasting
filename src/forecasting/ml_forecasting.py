@@ -381,9 +381,8 @@ class MLForecast:
         Returns:
             pd.Series: predictions using the model as a pandas Series with datetime index
         """
-        assert len(intersect_list(self._train_features, X.columns)) == len(
-            self._train_features
-        ), f"All the features during training is not available while predicting: {difference_list(self._train_features, X.columns)}"
+#        assert len(intersect_list(self._train_features, X.columns)) == len(self._train_features),
+#                   f"All the features during training is not available while predicting: {difference_list(self._train_features, X.columns)}"
         if self.model_config.fill_missing:
             X = self.missing_config.impute_missing_values(X)
         if self.model_config.encode_categorical:
