@@ -229,7 +229,8 @@ class MLForecast:
         load_models= False,
         link = None,
         scaler_name = None,
-        model_name = None) -> None:
+        model_name = None
+        encoder_name=None) -> None:
         """Convenient wrapper around scikit-learn style estimators
 
         Args:
@@ -248,8 +249,9 @@ class MLForecast:
         self._model = clone(model_config.model)
         self.load_model = load_models
         self.link = link
-        self.model_name = model_name
-        self.scaler_name = scaler_name
+        self._model_name = model_name
+        self._scaler_name = scaler_name
+        self._encoder_name = encoder_name
         if self.model_config.normalize:
             self._scaler = self.model_config.normalization_strategy
         if self.model_config.encode_categorical:
@@ -260,17 +262,24 @@ class MLForecast:
 
         if self.load_model:
             #self.folder = Path(self.link+"/output")
-            self._scaler = joblib.load(self.link+f'{self.scaler_name}.save') 
-            unknown_types = sio.get_untrusted_types(file=self.link+f"{self.model_name}.skops")
+            self._scaler = joblib.load(self.link+f'{self._scaler_name}.save') 
+            unknown_types = sio.get_untrusted_types(file=self.link+f"{self._model_name}.skops")
             # investigate the contents of unknown_types, and only load if you trust
             # everything you see.
-            self._model = sio.load(self.link+f"{self.model_name}.skops", trusted=unknown_types)
+            self._model = sio.load(self.link+f"{self._model_name}.skops", trusted=unknown_types)
+
+            if self.model_config.encode_categorical:
+                self._cat_encoder = joblib.load(self.link+f'{self._encoder_name}.save') 
 
 
-    def save_models(self, save_link=None, model_name=None, scaler_name=None):
+    def save_models(self, save_link=None, model_name=None, scaler_name=None, encoder_name=None):
         joblib.dump(self._scaler, save_link+f'{scaler_name}.save') 
         obj = sio.dump(self._model, save_link+f"{model_name}.skops")
-        print(f"Model saved in {save_link} with name {model_name}")
+
+        if self.model_config.encode_categorical:
+            joblib.dump(self._cat_encoder, save_link+f'{encoder_name}.save')
+        
+        print(f"Model saved in {save_link} with name {model_name} as well as the encoder")
 
     def fit(
         self,
@@ -394,13 +403,28 @@ class MLForecast:
             self.feature_config.boolean_features, X.columns
         )
 
-        if self.model_config.normalize:
-            self._scaler = self.model_config.normalization_strategy
         if self.model_config.encode_categorical:
-            self._cat_encoder = self.model_config.categorical_encoder
-            self._encoded_categorical_features = copy.deepcopy(
-                self.feature_config.categorical_features
+            missing_cat_cols = difference_list(
+                self._categorical_feats,
+                self._cat_encoder.cols,
             )
+            assert (
+                len(missing_cat_cols) == 0
+            ), f"These categorical features are not handled by the categorical_encoder: {missing_cat_cols}"
+            
+            # Now get the feature names from the fitted encoder
+            try:
+                feature_names = self._cat_encoder.get_feature_names()
+            except AttributeError:
+                # For newer versions of sklearn
+                feature_names = self._cat_encoder.get_feature_names_out()
+            
+            self._encoded_categorical_features = difference_list(
+                feature_names,
+                self.feature_config.continuous_features + self.feature_config.boolean_features,
+            )
+        else:
+            self._encoded_categorical_features = []
 
 #       Old Code:        
         if self.model_config.fill_missing:
