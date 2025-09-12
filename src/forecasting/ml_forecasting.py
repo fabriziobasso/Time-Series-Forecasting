@@ -383,6 +383,33 @@ class MLForecast:
             y_pred.name = f"{self.model_config.name}"
         return y_pred
 
+    def feature_importance(self) -> pd.DataFrame:
+        """Generates the feature importance dataframe, if available. For linear
+            models the coefficients are used and tree based models use the inbuilt
+            feature importance. For the rest of the models, it returns an empty dataframe.
+
+        Returns:
+            pd.DataFrame: Feature Importance dataframe, sorted in descending order of its importances.
+        """
+        if hasattr(self._model, "coef_") or hasattr(
+            self._model, "feature_importances_"
+        ):
+            feat_df = pd.DataFrame(
+                {
+                    "feature": self._train_features,
+                    "importance": self._model.coef_.ravel()
+                    if hasattr(self._model, "coef_")
+                    else self._model.feature_importances_.ravel(),
+                }
+            )
+            feat_df["_abs_imp"] = np.abs(feat_df.importance)
+            feat_df = feat_df.sort_values("_abs_imp", ascending=False).drop(
+                columns="_abs_imp"
+            )
+        else:
+            feat_df = pd.DataFrame()
+        return feat_df
+    
  # --- NEW METHODS FOR SAVING AND LOADING ---
     
     def save(self, filepath: str) -> None:
