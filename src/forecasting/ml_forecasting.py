@@ -250,6 +250,8 @@ class MLForecast:
             self._encoded_categorical_features = copy.deepcopy(
                 self.feature_config.categorical_features
             )
+        # ADDED: Flag to check if the model has been fitted
+        self._is_fitted = False
 
     def fit(
         self,
@@ -286,30 +288,6 @@ class MLForecast:
         if self.model_config.fill_missing:
             X = self.missing_config.impute_missing_values(X)
 
-        # if self.model_config.encode_categorical:
-        #     missing_cat_cols = difference_list(
-        #         self._categorical_feats,
-        #         self.model_config.categorical_encoder.cols,
-        #     )
-        #     assert (
-        #         len(missing_cat_cols) == 0
-        #     ), f"These categorical features are not handled by the categorical_encoder : {missing_cat_cols}"
-        #     # In later versions of sklearn get_feature_names have been deprecated
-        #     try:
-        #         feature_names = self.model_config.categorical_encoder.get_feature_names()
-        #     except AttributeError:
-        #         # in favour of get_feature_names_out()
-        #         feature_names = self.model_config.categorical_encoder.get_feature_names_out()
-        #     X = self._cat_encoder.fit_transform(X, y)
-        #     self._encoded_categorical_features = difference_list(
-        #         feature_names,
-        #         self.feature_config.continuous_features
-        #         + self.feature_config.boolean_features,
-        #     )
-        # else:
-        #     self._encoded_categorical_features = []
-
-        #Fixed Chapt 10 issue to move fit_transform before get_feature_names()
         if self.model_config.encode_categorical:
             missing_cat_cols = difference_list(
                 self._categorical_feats,
@@ -319,14 +297,11 @@ class MLForecast:
                 len(missing_cat_cols) == 0
             ), f"These categorical features are not handled by the categorical_encoder: {missing_cat_cols}"
             
-            # Fit the encoder before getting feature names
             X = self._cat_encoder.fit_transform(X, y)
             
-            # Now get the feature names from the fitted encoder
             try:
                 feature_names = self._cat_encoder.get_feature_names()
             except AttributeError:
-                # For newer versions of sklearn
                 feature_names = self._cat_encoder.get_feature_names_out()
             
             self._encoded_categorical_features = difference_list(
@@ -336,8 +311,6 @@ class MLForecast:
         else:
             self._encoded_categorical_features = []
 
-
-
         if self.model_config.normalize:
             X[
                 self._continuous_feats + self._encoded_categorical_features
@@ -345,10 +318,11 @@ class MLForecast:
                 X[self._continuous_feats + self._encoded_categorical_features]
             )
         self._train_features = X.columns.tolist()
-        # print(len(self._train_features))
         if not is_transformed and self.target_transformer is not None:
             y = self.target_transformer.fit_transform(y)
         self._model.fit(X, y, **fit_kwargs)
+        # ADDED: Set the fitted flag to True after training
+        self._is_fitted = True
         return self
 
     def predict(self, X: pd.DataFrame) -> pd.Series:
@@ -360,6 +334,10 @@ class MLForecast:
         Returns:
             pd.Series: predictions using the model as a pandas Series with datetime index
         """
+        # ADDED: Check if the model is fitted before predicting
+        if not self._is_fitted:
+            raise RuntimeError("This MLForecast instance is not fitted yet. Call 'fit' before predicting.")
+            
         assert len(intersect_list(self._train_features, X.columns)) == len(
             self._train_features
         ), f"All the features during training is not available while predicting: {difference_list(self._train_features, X.columns)}"
@@ -384,13 +362,12 @@ class MLForecast:
         return y_pred
 
     def feature_importance(self) -> pd.DataFrame:
-        """Generates the feature importance dataframe, if available. For linear
-            models the coefficients are used and tree based models use the inbuilt
-            feature importance. For the rest of the models, it returns an empty dataframe.
-
-        Returns:
-            pd.DataFrame: Feature Importance dataframe, sorted in descending order of its importances.
+        """Generates the feature importance dataframe, if available.
         """
+        # ADDED: Check if the model is fitted before getting feature importance
+        if not self._is_fitted:
+            raise RuntimeError("This MLForecast instance is not fitted yet. Call 'fit' before getting feature importance.")
+
         if hasattr(self._model, "coef_") or hasattr(
             self._model, "feature_importances_"
         ):
@@ -409,8 +386,8 @@ class MLForecast:
         else:
             feat_df = pd.DataFrame()
         return feat_df
-    
- # --- NEW METHODS FOR SAVING AND LOADING ---
+
+    # --- NEW METHODS FOR SAVING AND LOADING ---
     
     def save(self, filepath: str) -> None:
         """Saves the entire MLForecast object to a file using joblib.
@@ -448,7 +425,6 @@ class MLForecast:
         model_instance = joblib.load(filepath)
         print("Load complete.")
         return model_instance
-
 
 def calculate_metrics(
     y: pd.Series, y_pred: pd.Series, name: str, y_train: pd.Series = None
