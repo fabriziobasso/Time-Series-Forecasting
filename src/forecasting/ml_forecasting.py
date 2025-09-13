@@ -334,13 +334,17 @@ class MLForecast:
         Returns:
             pd.Series: predictions using the model as a pandas Series with datetime index
         """
-        # ADDED: Check if the model is fitted before predicting
+        # THE FIX: Add this line to work on a copy and prevent side effects.
+        X = X.copy()
+
+        # Check if the model is fitted before predicting
         if not self._is_fitted:
             raise RuntimeError("This MLForecast instance is not fitted yet. Call 'fit' before predicting.")
-            
+
         assert len(intersect_list(self._train_features, X.columns)) == len(
             self._train_features
         ), f"All the features during training is not available while predicting: {difference_list(self._train_features, X.columns)}"
+        
         if self.model_config.fill_missing:
             X = self.missing_config.impute_missing_values(X)
         if self.model_config.encode_categorical:
@@ -351,14 +355,17 @@ class MLForecast:
             ] = self._scaler.transform(
                 X[self._continuous_feats + self._encoded_categorical_features]
             )
+            
         y_pred = pd.Series(
             self._model.predict(X).ravel(),
             index=X.index,
             name=f"{self.model_config.name}",
         )
+        
         if self.target_transformer is not None:
             y_pred = self.target_transformer.inverse_transform(y_pred)
             y_pred.name = f"{self.model_config.name}"
+            
         return y_pred
 
     def feature_importance(self) -> pd.DataFrame:
